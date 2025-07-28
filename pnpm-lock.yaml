@@ -9,6 +9,9 @@ catalogs:
     eslint:
       specifier: ^9.32.0
       version: 9.32.0
+    typescript:
+      specifier: ^5.8.3
+      version: 5.8.3
 
 importers:
 
@@ -29,12 +32,20 @@ importers:
       '@antfu/eslint-config':
         specifier: ^5.0.0
         version: 5.0.0(@vue/compiler-sfc@3.5.18)(eslint-plugin-format@1.0.1(eslint@9.32.0))(eslint@9.32.0)(typescript@5.8.3)
+      '@hotel-booking-system/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript
       eslint:
         specifier: 'catalog:'
         version: 9.32.0
       eslint-plugin-format:
         specifier: ^1.0.1
         version: 1.0.1(eslint@9.32.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  tools/typescript: {}
 
 packages:
 

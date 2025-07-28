@@ -1,0 +1,4 @@
+{
+  "extends": "@hotel-booking-system/typescript-config/base.json",
+  "include": ["."]
+}

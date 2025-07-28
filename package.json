@@ -12,7 +12,8 @@
   "scripts": {
     "lint": "turbo run lint lint:root --continue -- --cache --cache-location .cache/.eslintcache",
     "lint:fix": "turbo run lint lint:root --continue -- --fix --cache --cache-location .cache/.eslintcache",
-    "lint:root": "eslint"
+    "lint:root": "eslint",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "@hotel-booking-system/eslint-config": "workspace:^",

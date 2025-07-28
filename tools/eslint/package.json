@@ -7,11 +7,14 @@
     "./base": "./base.js"
   },
   "scripts": {
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^5.0.0",
+    "@hotel-booking-system/typescript-config": "workspace:*",
     "eslint": "catalog:",
-    "eslint-plugin-format": "^1.0.1"
+    "eslint-plugin-format": "^1.0.1",
+    "typescript": "catalog:"
   }
 }

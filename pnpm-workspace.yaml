@@ -3,3 +3,4 @@ packages:
 
 catalog:
   eslint: ^9.32.0
+  typescript: ^5.8.3

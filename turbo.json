@@ -1,13 +1,19 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "ui": "tui",
   "tasks": {
-    "lint": {
-      "dependsOn": ["^lint"],
-      "cache": false
-    },
     "//#lint:root": {
-      "cache": false
+      "outputs": [".cache/.eslintcache"]
+    },
+    "lint": {
+      "dependsOn": ["^topo"],
+      "outputs": [".cache/.eslintcache"]
+    },
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
+    "typecheck": {
+      "dependsOn": ["^topo"],
+      "outputs": [".cache/tsbuildinfo.json"]
     }
   }
 }
