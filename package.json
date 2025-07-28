@@ -1,0 +1,16 @@
+{
+  "name": "hotel-booking-system",
+  "version": "0.0.1",
+  "description": "A Domain-Driven Design Hotel Booking System",
+  "scripts": {},
+  "keywords": [],
+  "author": {
+    "name": "Boonyarit Iamsa-ard",
+    "email": "boonyarit.iamsaard@gmail.com"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "turbo": "^2.5.5"
+  }
+}
