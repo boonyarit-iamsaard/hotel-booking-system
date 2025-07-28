@@ -1,0 +1,53 @@
+name: hotel-booking-system
+
+services:
+  postgres:
+    container_name: hotel-booking-system-postgres
+    image: docker.io/library/postgres:15-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-hotel-booking-system}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-hotel-booking-system}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - hotel-booking-system-network
+    restart: unless-stopped
+
+  mailpit:
+    container_name: hotel-booking-system-mailpit
+    image: axllent/mailpit
+    restart: unless-stopped
+    volumes:
+      - mailpitdata:/data
+    ports:
+      - '8025:8025'
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+      MP_SMTP_ADDR: '0.0.0.0:1025'
+    networks:
+      - hotel-booking-system-network
+
+volumes:
+  pgdata:
+    name: 'hotel-booking-system-pgdata'
+  mailpitdata:
+    name: 'hotel-booking-system-mailpitdata'
+
+networks:
+  hotel-booking-system-network:
+    name: 'hotel-booking-system-network'
+    driver: bridge
