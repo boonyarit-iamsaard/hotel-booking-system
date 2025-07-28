@@ -1,0 +1,10 @@
+{
+  "extends": "@hotel-booking-system/typescript-config/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["."]
+}
