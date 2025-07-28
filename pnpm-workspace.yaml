@@ -1,2 +1,5 @@
 packages:
-  - "tools/*"
+  - 'tools/*'
+
+catalog:
+  eslint: ^9.32.0

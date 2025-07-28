@@ -1,16 +1,22 @@
 {
   "name": "hotel-booking-system",
   "version": "0.0.1",
+  "packageManager": "pnpm@10.13.1",
   "description": "A Domain-Driven Design Hotel Booking System",
-  "scripts": {},
-  "keywords": [],
   "author": {
     "name": "Boonyarit Iamsa-ard",
     "email": "boonyarit.iamsaard@gmail.com"
   },
   "license": "MIT",
-  "packageManager": "pnpm@10.13.1",
+  "keywords": [],
+  "scripts": {
+    "lint": "turbo run lint lint:root --continue -- --cache --cache-location .cache/.eslintcache",
+    "lint:fix": "turbo run lint lint:root --continue -- --fix --cache --cache-location .cache/.eslintcache",
+    "lint:root": "eslint"
+  },
   "devDependencies": {
+    "@hotel-booking-system/eslint-config": "workspace:^",
+    "eslint": "catalog:",
     "turbo": "^2.5.5"
   }
 }
