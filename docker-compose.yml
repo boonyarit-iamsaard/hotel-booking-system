@@ -11,11 +11,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-hotel-booking-system}
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-hotel-booking-system}',
-        ]
+      test: [CMD-SHELL, 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-hotel-booking-system}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,11 +39,11 @@ services:
 
 volumes:
   pgdata:
-    name: 'hotel-booking-system-pgdata'
+    name: hotel-booking-system-pgdata
   mailpitdata:
-    name: 'hotel-booking-system-mailpitdata'
+    name: hotel-booking-system-mailpitdata
 
 networks:
   hotel-booking-system-network:
-    name: 'hotel-booking-system-network'
+    name: hotel-booking-system-network
     driver: bridge

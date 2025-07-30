@@ -1,5 +1,3 @@
-import antfu from '@antfu/eslint-config'
+import { baseConfig } from './base.js'
 
-export default antfu({
-  formatters: true,
-})
+export default baseConfig
