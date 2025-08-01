@@ -1,441 +1,338 @@
-# Section 3: Structure Blueprint—DDD & Hexagonal Architecture Implementation
+# Section 3: Structure Blueprint—Implementation Guide
 
-## 3.1 Architecture Overview
+## 3.1 Hexagonal Architecture Implementation
 
-This blueprint synthesizes Domain-Driven Design (DDD) strategic patterns with Hexagonal Architecture (Ports & Adapters) tactical implementation. The result is a modular monolith that maintains clear boundaries between business logic and external concerns while supporting future evolution to microservices.
-
-### Core Architectural Principles
-
-1. **Domain-Centric Design**: Business logic isolated in the domain layer
-2. **Dependency Inversion**: Domain depends only on abstractions, never on concrete implementations
-3. **Hexagonal Boundaries**: Clear separation between core business logic and external adapters
-4. **Bounded Context Isolation**: Each context maintains its own domain model and boundaries
-5. **MVP-First Approach**: Incremental development focusing on core business value
-
-## 3.2 Hexagonal Architecture Layers
+### Architecture Layer Visualization
 
 ```mermaid
 graph TB
-    subgraph "External World"
-        UI[Web UI<br/>Next.js]
-        API[REST/tRPC APIs]
-        DB[(PostgreSQL<br/>Database)]
-        Stripe[Stripe<br/>Payment Gateway]
-        Email[Email<br/>Service]
-        OTA[OTA<br/>Platforms]
+    subgraph "External Services"
+        UI[Next.js Web App]
+        DB[(PostgreSQL Database)]
+        Stripe[Stripe Payment API]
+        Email[Email Service API]
+        Admin[Admin Dashboard]
     end
 
-    subgraph "Hexagonal Architecture"
-        subgraph "Adapters (Infrastructure)"
-            WebAdapter[Web Adapter]
-            APIAdapter[API Adapter]
-            DBAdapter[Database Adapter]
-            PaymentAdapter[Payment Adapter]
-            EmailAdapter[Email Adapter]
-            OTAAdapter[OTA Adapter]
-        end
-
-        subgraph "Ports (Interfaces)"
-            WebPort[Web Port]
-            APIPort[API Port]
-            RepoPort[Repository Port]
-            PaymentPort[Payment Port]
-            NotificationPort[Notification Port]
-            IntegrationPort[Integration Port]
-        end
-
-        subgraph "Application Layer"
-            UseCases[Use Cases<br/>Command/Query Handlers]
-            AppServices[Application Services]
-            EventHandlers[Domain Event Handlers]
-        end
-
-        subgraph "Domain Layer (Core)"
-            Entities[Entities & Aggregates]
-            ValueObjects[Value Objects]
-            DomainServices[Domain Services]
-            DomainEvents[Domain Events]
-            Repositories[Repository Interfaces]
-        end
+    subgraph "Infrastructure Layer (Adapters)"
+        WebAdapter[Web API Adapter]
+        DBAdapter[Database Adapter]
+        PaymentAdapter[Stripe Adapter]
+        EmailAdapter[Email Adapter]
+        AdminAdapter[Admin API Adapter]
     end
 
+    subgraph "Application Layer (Ports)"
+        UseCases[Use Cases]
+        QueryServices[Query Services]
+        EventHandlers[Event Handlers]
+        Ports[Outbound Ports]
+    end
+
+    subgraph "Domain Layer (Core Business Logic)"
+        Aggregates[Aggregates]
+        Entities[Entities]
+        ValueObjects[Value Objects]
+        DomainServices[Domain Services]
+        DomainEvents[Domain Events]
+        Repositories[Repository Interfaces]
+        Specifications[Business Specifications]
+    end
+
+    %% External to Infrastructure
     UI --> WebAdapter
-    API --> APIAdapter
-    WebAdapter --> WebPort
-    APIAdapter --> APIPort
+    Admin --> AdminAdapter
+    DB --> DBAdapter
+    Stripe --> PaymentAdapter
+    Email --> EmailAdapter
 
-    WebPort --> UseCases
-    APIPort --> UseCases
-    UseCases --> Entities
+    %% Infrastructure to Application
+    WebAdapter --> UseCases
+    AdminAdapter --> UseCases
+    UseCases --> QueryServices
+    UseCases --> EventHandlers
+
+    %% Application to Domain
+    UseCases --> Aggregates
     UseCases --> DomainServices
+    QueryServices --> Repositories
+    EventHandlers --> DomainEvents
 
-    Repositories --> RepoPort
-    RepoPort --> DBAdapter
-    DBAdapter --> DB
+    %% Domain Internal
+    Aggregates --> Entities
+    Aggregates --> ValueObjects
+    DomainServices --> Specifications
+    Aggregates --> DomainEvents
 
-    PaymentPort --> PaymentAdapter
-    PaymentAdapter --> Stripe
+    %% Outbound Flow
+    Repositories --> DBAdapter
+    Ports --> PaymentAdapter
+    Ports --> EmailAdapter
 
-    NotificationPort --> EmailAdapter
-    EmailAdapter --> Email
-
-    IntegrationPort --> OTAAdapter
-    OTAAdapter --> OTA
-
-    classDef domain fill:#e1f5fe,stroke:#01579b,stroke-width:3px
-    classDef application fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef external fill:#f9f9f9,stroke:#333,stroke-width:2px
     classDef infrastructure fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef external fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef application fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef domain fill:#e1f5fe,stroke:#01579b,stroke-width:3px
 
-    class Entities,ValueObjects,DomainServices,DomainEvents,Repositories domain
-    class UseCases,AppServices,EventHandlers application
-    class WebAdapter,APIAdapter,DBAdapter,PaymentAdapter,EmailAdapter,OTAAdapter infrastructure
-    class UI,API,DB,Stripe,Email,OTA external
+    class UI,DB,Stripe,Email,Admin external
+    class WebAdapter,DBAdapter,PaymentAdapter,EmailAdapter,AdminAdapter infrastructure
+    class UseCases,QueryServices,EventHandlers,Ports application
+    class Aggregates,Entities,ValueObjects,DomainServices,DomainEvents,Repositories,Specifications domain
 ```
 
-## 3.3 Bounded Context Implementation Structure
+## 3.2 Core Domain Implementation Structure
 
-Each bounded context follows the same hexagonal structure while maintaining clear boundaries:
-
-### 3.3.1 Reservations & Booking Context (Core Domain)
+### Reservations Context (Core Domain)
 
 ```text
 core/reservations/                    # @hotel/reservations
-├── domain/                           # Domain Layer (Inner Hexagon)
+├── domain/                           # Domain Layer (Pure Business Logic)
+│   ├── aggregates/
+│   │   ├── reservation.aggregate.ts  # Main aggregate root
+│   │   └── index.ts
 │   ├── entities/
-│   │   ├── reservation.entity.ts     # Reservation Aggregate Root
-│   │   ├── booking.entity.ts         # Booking Entity
+│   │   ├── room-booking.entity.ts    # Child entity within reservation
+│   │   ├── guest-stay.entity.ts      # Guest stay details
 │   │   └── index.ts
 │   ├── value-objects/
-│   │   ├── date-range.vo.ts          # Check-in/Check-out dates
-│   │   ├── guest-info.vo.ts          # Guest contact information
+│   │   ├── date-range.vo.ts          # Check-in/check-out dates
 │   │   ├── confirmation-number.vo.ts # Unique booking identifier
-│   │   ├── booking-status.vo.ts      # Reservation status enum
-│   │   ├── rate-calculation.vo.ts    # Pricing calculation
+│   │   ├── reservation-status.vo.ts  # Status enumeration
+│   │   ├── guest-info.vo.ts          # Guest contact information
 │   │   └── index.ts
-│   ├── services/
-│   │   ├── booking-policy.service.ts # Business rules for bookings
-│   │   ├── rate-calculator.service.ts # Pricing logic
+│   ├── domain-services/
+│   │   ├── booking-policy.service.ts # Complex booking rules
+│   │   ├── rate-calculator.service.ts # Pricing calculations
 │   │   ├── availability-checker.service.ts # Room availability
 │   │   └── index.ts
-│   ├── events/
-│   │   ├── booking-created.event.ts  # Domain event
-│   │   ├── booking-confirmed.event.ts
-│   │   ├── booking-cancelled.event.ts
+│   ├── domain-events/
+│   │   ├── reservation-created.event.ts
+│   │   ├── reservation-confirmed.event.ts
+│   │   ├── reservation-cancelled.event.ts
+│   │   ├── payment-required.event.ts
 │   │   └── index.ts
 │   ├── repositories/                 # Repository Interfaces (Ports)
 │   │   ├── reservation.repository.ts
-│   │   ├── booking.repository.ts
+│   │   ├── booking-policy.repository.ts
+│   │   └── index.ts
+│   ├── specifications/               # Business Rule Specifications
+│   │   ├── can-book.specification.ts
+│   │   ├── can-cancel.specification.ts
+│   │   ├── minimum-stay.specification.ts
 │   │   └── index.ts
 │   └── index.ts
-├── application/                      # Application Layer
-│   ├── commands/
-│   │   ├── create-reservation.command.ts
-│   │   ├── confirm-booking.command.ts
-│   │   ├── cancel-booking.command.ts
+├── application/                      # Application Layer (Use Cases)
+│   ├── use-cases/
+│   │   ├── create-reservation/
+│   │   │   ├── create-reservation.use-case.ts
+│   │   │   ├── create-reservation.dto.ts
+│   │   │   └── index.ts
+│   │   ├── confirm-reservation/
+│   │   │   ├── confirm-reservation.use-case.ts
+│   │   │   ├── confirm-reservation.dto.ts
+│   │   │   └── index.ts
+│   │   ├── cancel-reservation/
+│   │   ├── modify-reservation/
 │   │   └── index.ts
-│   ├── queries/
-│   │   ├── get-reservation.query.ts
-│   │   ├── list-bookings.query.ts
+│   ├── query-services/
+│   │   ├── reservation-query.service.ts
+│   │   ├── availability-query.service.ts
 │   │   └── index.ts
-│   ├── handlers/
-│   │   ├── create-reservation.handler.ts
-│   │   ├── confirm-booking.handler.ts
-│   │   ├── cancel-booking.handler.ts
-│   │   ├── get-reservation.handler.ts
+│   ├── ports/                        # Outbound Ports
+│   │   ├── room-availability.port.ts # To inventory context
+│   │   ├── payment-processor.port.ts # To billing context
+│   │   ├── notification-sender.port.ts # To notification context
 │   │   └── index.ts
-│   ├── services/
-│   │   ├── reservation.service.ts    # Application Service
-│   │   └── index.ts
-│   ├── ports/                        # Application Ports
-│   │   ├── payment.port.ts           # Payment processing interface
-│   │   ├── notification.port.ts      # Email notification interface
-│   │   ├── room-availability.port.ts # Room inventory interface
+│   ├── event-handlers/
+│   │   ├── payment-completed.handler.ts
+│   │   ├── reservation-expired.handler.ts
 │   │   └── index.ts
 │   └── index.ts
 ├── infrastructure/                   # Infrastructure Layer (Adapters)
-│   ├── adapters/
-│   │   ├── database/
-│   │   │   ├── reservation.adapter.ts # Database adapter
-│   │   │   ├── booking.adapter.ts
-│   │   │   └── index.ts
-│   │   ├── external/
-│   │   │   ├── payment.adapter.ts    # Stripe integration
-│   │   │   ├── notification.adapter.ts # Email service
+│   ├── persistence/
+│   │   ├── reservation.repository.impl.ts
+│   │   ├── event-store.repository.ts
+│   │   ├── schemas/
+│   │   │   ├── reservation.schema.ts # Drizzle schema
+│   │   │   ├── events.schema.ts
 │   │   │   └── index.ts
 │   │   └── index.ts
-│   ├── schemas/
-│   │   ├── reservation.schema.ts     # Database schema
-│   │   ├── booking.schema.ts
+│   ├── adapters/
+│   │   ├── room-availability.adapter.ts # Inventory context integration
+│   │   ├── payment-processor.adapter.ts # Billing context integration
+│   │   ├── notification-sender.adapter.ts # Notification integration
 │   │   └── index.ts
 │   └── index.ts
-└── index.ts                          # Context public interface
+└── index.ts                          # Context Public API
 ```
 
-### 3.3.2 Hotel & Room Management Context (Supporting)
+### Hotel & Room Management Context (Supporting Domain)
 
 ```text
 core/inventory/                       # @hotel/inventory
-├── domain/                           # Domain Layer
+├── domain/
+│   ├── aggregates/
+│   │   ├── room-type.aggregate.ts    # Room type with availability
+│   │   ├── hotel.aggregate.ts        # Hotel configuration
+│   │   └── index.ts
 │   ├── entities/
-│   │   ├── room-type.entity.ts       # Room Type Aggregate Root
-│   │   ├── room.entity.ts            # Individual Room Entity
-│   │   ├── amenity.entity.ts         # Hotel Amenities
+│   │   ├── room.entity.ts            # Individual room
+│   │   ├── amenity.entity.ts         # Hotel amenities
 │   │   └── index.ts
 │   ├── value-objects/
-│   │   ├── room-number.vo.ts         # Room identifier
-│   │   ├── occupancy-status.vo.ts    # Room status
-│   │   ├── room-features.vo.ts       # Room characteristics
-│   │   ├── pricing-info.vo.ts        # Base pricing
+│   │   ├── room-number.vo.ts
+│   │   ├── occupancy-status.vo.ts
+│   │   ├── room-features.vo.ts
+│   │   ├── pricing-info.vo.ts
 │   │   └── index.ts
-│   ├── services/
-│   │   ├── availability-calendar.service.ts # Room availability logic
-│   │   ├── room-assignment.service.ts # Room allocation
+│   ├── domain-services/
+│   │   ├── availability-calculator.service.ts
+│   │   ├── room-assignment.service.ts
 │   │   └── index.ts
-│   ├── events/
-│   │   ├── room-status-changed.event.ts
+│   ├── domain-events/
+│   │   ├── room-type-created.event.ts
 │   │   ├── availability-updated.event.ts
+│   │   ├── room-blocked.event.ts
 │   │   └── index.ts
 │   ├── repositories/
 │   │   ├── room-type.repository.ts
 │   │   ├── room.repository.ts
 │   │   ├── availability.repository.ts
 │   │   └── index.ts
-│   └── index.ts
-├── application/                      # Application Layer
-│   ├── commands/
-│   │   ├── create-room-type.command.ts
-│   │   ├── update-room-status.command.ts
-│   │   ├── block-rooms.command.ts
-│   │   └── index.ts
-│   ├── queries/
-│   │   ├── get-available-rooms.query.ts
-│   │   ├── get-room-types.query.ts
-│   │   └── index.ts
-│   ├── handlers/
-│   │   ├── room-management.handlers.ts
-│   │   ├── availability.handlers.ts
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── room-management.service.ts
-│   │   └── index.ts
-│   ├── ports/
-│   │   ├── housekeeping.port.ts      # Future: Housekeeping integration
+│   ├── specifications/
+│   │   ├── room-available.specification.ts
 │   │   └── index.ts
 │   └── index.ts
-├── infrastructure/                   # Infrastructure Layer
-│   ├── adapters/
-│   │   ├── database/
-│   │   │   ├── room-type.adapter.ts
-│   │   │   ├── room.adapter.ts
-│   │   │   ├── availability.adapter.ts
-│   │   │   └── index.ts
+├── application/
+│   ├── use-cases/
+│   │   ├── create-room-type/
+│   │   ├── update-availability/
+│   │   ├── block-rooms/
+│   │   ├── assign-room/
 │   │   └── index.ts
-│   ├── schemas/
-│   │   ├── room-type.schema.ts
-│   │   ├── room.schema.ts
-│   │   ├── availability.schema.ts
+│   ├── query-services/
+│   │   ├── room-type-query.service.ts
+│   │   ├── availability-query.service.ts
 │   │   └── index.ts
+│   ├── event-handlers/
+│   │   ├── reservation-confirmed.handler.ts # Update availability
+│   │   ├── reservation-cancelled.handler.ts # Release rooms
+│   │   └── index.ts
+│   └── index.ts
+├── infrastructure/
+│   ├── persistence/
+│   │   ├── room-type.repository.impl.ts
+│   │   ├── availability.repository.impl.ts
+│   │   └── schemas/
+│   │       ├── room-type.schema.ts
+│   │       ├── availability.schema.ts
+│   │       └── index.ts
 │   └── index.ts
 └── index.ts
 ```
 
-### 3.3.3 Customer Identity & Access Context (Supporting)
-
-```text
-core/guests/                          # @hotel/guests
-├── domain/                           # Domain Layer
-│   ├── entities/
-│   │   ├── guest.entity.ts           # Guest Aggregate Root
-│   │   ├── guest-profile.entity.ts   # Guest Profile Entity
-│   │   └── index.ts
-│   ├── value-objects/
-│   │   ├── guest-id.vo.ts            # Guest identifier
-│   │   ├── contact-info.vo.ts        # Contact information
-│   │   ├── preferences.vo.ts         # Guest preferences
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── authentication.service.ts # Authentication logic
-│   │   └── index.ts
-│   ├── events/
-│   │   ├── guest-registered.event.ts
-│   │   ├── profile-updated.event.ts
-│   │   └── index.ts
-│   ├── repositories/
-│   │   ├── guest.repository.ts
-│   │   └── index.ts
-│   └── index.ts
-├── application/                      # Application Layer
-│   ├── commands/
-│   │   ├── register-guest.command.ts
-│   │   ├── update-profile.command.ts
-│   │   └── index.ts
-│   ├── queries/
-│   │   ├── get-guest.query.ts
-│   │   ├── authenticate-guest.query.ts
-│   │   └── index.ts
-│   ├── handlers/
-│   │   ├── guest-management.handlers.ts
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── guest-management.service.ts
-│   │   └── index.ts
-│   └── index.ts
-├── infrastructure/                    # Infrastructure Layer
-│   ├── adapters/
-│   │   ├── database/
-│   │   │   ├── guest.adapter.ts
-│   │   │   └── index.ts
-│   │   └── index.ts
-│   ├── schemas/
-│   │   ├── guest.schema.ts
-│   │   └── index.ts
-│   └── index.ts
-└── index.ts
-```
-
-### 3.3.4 Billing & Payments Context (Supporting)
+### Billing & Payments Context (Supporting Domain)
 
 ```text
 core/billing/                         # @hotel/billing
-├── domain/                           # Domain Layer
+├── domain/
+│   ├── aggregates/
+│   │   ├── payment.aggregate.ts      # Payment processing
+│   │   ├── invoice.aggregate.ts      # Invoice generation
+│   │   └── index.ts
 │   ├── entities/
-│   │   ├── payment.entity.ts         # Payment Aggregate Root
-│   │   ├── invoice.entity.ts         # Invoice Entity
+│   │   ├── payment-method.entity.ts
+│   │   ├── refund.entity.ts
 │   │   └── index.ts
 │   ├── value-objects/
-│   │   ├── payment-method.vo.ts      # Payment method details
-│   │   ├── payment-status.vo.ts      # Payment status
-│   │   ├── amount.vo.ts              # Money amount
+│   │   ├── payment-status.vo.ts
+│   │   ├── payment-intent-id.vo.ts
+│   │   ├── amount.vo.ts
 │   │   └── index.ts
-│   ├── services/
-│   │   ├── payment-processing.service.ts # Payment logic
+│   ├── domain-services/
+│   │   ├── payment-policy.service.ts
+│   │   ├── refund-calculator.service.ts
+│   │   ├── tax-calculator.service.ts
 │   │   └── index.ts
-│   ├── events/
-│   │   ├── payment-processed.event.ts
+│   ├── domain-events/
+│   │   ├── payment-initiated.event.ts
+│   │   ├── payment-completed.event.ts
 │   │   ├── payment-failed.event.ts
+│   │   ├── refund-processed.event.ts
 │   │   └── index.ts
 │   ├── repositories/
 │   │   ├── payment.repository.ts
+│   │   ├── invoice.repository.ts
+│   │   └── index.ts
+│   ├── specifications/
+│   │   ├── can-refund.specification.ts
+│   │   ├── requires-deposit.specification.ts
 │   │   └── index.ts
 │   └── index.ts
-├── application/                      # Application Layer
-│   ├── commands/
-│   │   ├── process-payment.command.ts
-│   │   ├── refund-payment.command.ts
+├── application/
+│   ├── use-cases/
+│   │   ├── process-payment/
+│   │   ├── handle-payment-webhook/
+│   │   ├── process-refund/
+│   │   ├── generate-invoice/
 │   │   └── index.ts
-│   ├── queries/
-│   │   ├── get-payment.query.ts
-│   │   └── index.ts
-│   ├── handlers/
-│   │   ├── payment.handlers.ts
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── payment.service.ts
+│   ├── query-services/
+│   │   ├── payment-query.service.ts
 │   │   └── index.ts
 │   ├── ports/
-│   │   ├── payment-gateway.port.ts   # Stripe integration interface
+│   │   ├── payment-gateway.port.ts   # Stripe integration
+│   │   └── index.ts
+│   ├── event-handlers/
+│   │   ├── reservation-confirmed.handler.ts # Process payment
+│   │   ├── reservation-cancelled.handler.ts # Handle refunds
 │   │   └── index.ts
 │   └── index.ts
-├── infrastructure/                   # Infrastructure Layer
+├── infrastructure/
+│   ├── persistence/
+│   │   ├── payment.repository.impl.ts
+│   │   └── schemas/
+│   │       ├── payment.schema.ts
+│   │       └── index.ts
 │   ├── adapters/
-│   │   ├── database/
-│   │   │   ├── payment.adapter.ts
-│   │   │   └── index.ts
-│   │   ├── stripe/
-│   │   │   ├── stripe.adapter.ts     # Stripe payment gateway
-│   │   │   └── index.ts
-│   │   └── index.ts
-│   ├── schemas/
-│   │   ├── payment.schema.ts
+│   │   ├── stripe.adapter.ts         # Stripe payment gateway
 │   │   └── index.ts
 │   └── index.ts
 └── index.ts
 ```
 
-### 3.3.5 Notification & Communication Context (Supporting)
-
-```text
-core/notifications/                   # @hotel/notifications
-├── domain/                           # Domain Layer
-│   ├── entities/
-│   │   ├── notification.entity.ts    # Notification Aggregate Root
-│   │   └── index.ts
-│   ├── value-objects/
-│   │   ├── notification-type.vo.ts   # Email, SMS, etc.
-│   │   ├── recipient.vo.ts           # Recipient details
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── notification.service.ts   # Notification logic
-│   │   └── index.ts
-│   ├── events/
-│   │   ├── notification-sent.event.ts
-│   │   └── index.ts
-│   ├── repositories/
-│   │   ├── notification.repository.ts
-│   │   └── index.ts
-│   └── index.ts
-├── application/                      # Application Layer
-│   ├── commands/
-│   │   ├── send-notification.command.ts
-│   │   └── index.ts
-│   ├── queries/
-│   │   ├── get-notification-history.query.ts
-│   │   └── index.ts
-│   ├── handlers/
-│   │   ├── notification.handlers.ts
-│   │   └── index.ts
-│   ├── services/
-│   │   ├── notification.service.ts
-│   │   └── index.ts
-│   ├── ports/
-│   │   ├── email-service.port.ts     # Email service interface
-│   │   └── index.ts
-│   └── index.ts
-├── infrastructure/                    # Infrastructure Layer
-│   ├── adapters/
-│   │   ├── database/
-│   │   │   ├── notification.adapter.ts
-│   │   │   └── index.ts
-│   │   ├── email/
-│   │   │   ├── email.adapter.ts      # Email service adapter
-│   │   │   ├── templates/
-│   │   │   └── index.ts
-│   │   └── index.ts
-│   ├── schemas/
-│   │   ├── notification.schema.ts
-│   │   └── index.ts
-│   └── index.ts
-└── index.ts
-```
-
-## 3.4 Cross-Cutting Concerns & Shared Infrastructure
-
-### 3.4.1 Shared Kernel Structure
+### Shared Kernel Implementation
 
 ```text
 core/shared/                          # @hotel/shared
-├── domain/                           # Shared Domain Concepts
+├── domain/
 │   ├── value-objects/
-│   │   ├── money.vo.ts               # Currency and amount
-│   │   ├── email.vo.ts               # Email address validation
+│   │   ├── guest-id.vo.ts            # Shared guest identifier
+│   │   ├── room-type-id.vo.ts        # Shared room type identifier
+│   │   ├── money.vo.ts               # Currency and amount handling
+│   │   ├── email.vo.ts               # Email validation
 │   │   ├── phone.vo.ts               # Phone number validation
-│   │   ├── address.vo.ts             # Physical address
+│   │   ├── date-range.vo.ts          # Common date operations
+│   │   └── index.ts
+│   ├── entities/
+│   │   ├── base.entity.ts            # Base entity class
+│   │   ├── aggregate-root.ts         # Base aggregate root
 │   │   └── index.ts
 │   ├── events/
 │   │   ├── domain-event.base.ts      # Base domain event
+│   │   ├── integration-event.base.ts # Cross-context events
 │   │   ├── event-dispatcher.ts       # Event handling
 │   │   └── index.ts
 │   ├── exceptions/
 │   │   ├── domain.exception.ts       # Domain-specific errors
 │   │   ├── validation.exception.ts   # Validation errors
+│   │   ├── business-rule.exception.ts # Business rule violations
 │   │   └── index.ts
 │   └── index.ts
-├── application/                      # Shared Application Patterns
-│   ├── cqrs/
-│   │   ├── command.base.ts           # Base command interface
+├── application/
+│   ├── patterns/
+│   │   ├── use-case.base.ts          # Base use case interface
 │   │   ├── query.base.ts             # Base query interface
-│   │   ├── handler.base.ts           # Base handler interface
+│   │   ├── specification.base.ts     # Base specification pattern
 │   │   └── index.ts
 │   ├── validation/
 │   │   ├── validator.service.ts      # Zod validation service
@@ -444,74 +341,90 @@ core/shared/                          # @hotel/shared
 └── index.ts
 ```
 
-### 3.4.2 Infrastructure Packages Structure
+## 3.3 Infrastructure Package Implementation
+
+### Database Package Structure
 
 ```text
-packages/
-├── database/                         # @hotel/database
-│   ├── schemas/
-│   │   ├── reservations.schema.ts    # Drizzle schemas per context
-│   │   ├── rooms.schema.ts
-│   │   ├── guests.schema.ts
-│   │   ├── payments.schema.ts
+packages/database/                    # @hotel/database
+├── schemas/
+│   ├── reservations/
+│   │   ├── reservations.schema.ts    # Reservation tables
+│   │   ├── events.schema.ts          # Event store
 │   │   └── index.ts
-│   ├── migrations/
-│   │   ├── 001_initial_schema.sql
-│   │   ├── 002_add_payments.sql
+│   ├── inventory/
+│   │   ├── room-types.schema.ts      # Room type tables
+│   │   ├── availability.schema.ts    # Availability calendar
 │   │   └── index.ts
-│   ├── connection.ts                 # Database connection
-│   └── index.ts
-├── api/                              # @hotel/api
-│   ├── routers/
-│   │   ├── reservations.router.ts    # tRPC routers per context
-│   │   ├── rooms.router.ts
-│   │   ├── guests.router.ts
-│   │   ├── payments.router.ts
+│   ├── billing/
+│   │   ├── payments.schema.ts        # Payment tables
 │   │   └── index.ts
-│   ├── middleware/
-│   │   ├── auth.middleware.ts        # Authentication
-│   │   ├── validation.middleware.ts  # Request validation
+│   ├── guests/
+│   │   ├── guests.schema.ts          # Guest tables
 │   │   └── index.ts
-│   ├── root.router.ts                # Main tRPC router
-│   └── index.ts
-├── auth/                             # @hotel/auth (better-auth)
-│   ├── auth.config.ts                # better-auth configuration
-│   ├── providers/                    # Authentication providers
-│   │   ├── credentials.provider.ts   # Email/password provider
-│   │   ├── google.provider.ts        # Google OAuth provider
-│   │   └── index.ts
-│   ├── middleware.ts                 # Auth middleware
-│   ├── types.ts                      # Auth-related types
-│   └── index.ts
-├── adapters/                         # @hotel/adapters
-│   ├── stripe/
-│   │   ├── stripe.adapter.ts         # Stripe payment adapter
-│   │   ├── webhook.handler.ts        # Stripe webhook handling
-│   │   └── index.ts
-│   ├── email/
-│   │   ├── email.adapter.ts          # Email service adapter
-│   │   ├── templates/                # Email templates
+│   ├── shared/
+│   │   ├── audit.schema.ts           # Audit trail
+│   │   ├── integration-events.schema.ts
 │   │   └── index.ts
 │   └── index.ts
-├── ui/                               # @hotel/ui
-│   ├── components/
-│   │   ├── forms/                    # Form components
-│   │   ├── layouts/                  # Layout components
-│   │   ├── data-display/             # Tables, cards, etc.
-│   │   └── index.ts
-│   ├── hooks/                        # Shared React hooks
-│   ├── utils/                        # UI utilities
+├── migrations/
+│   ├── 0001_initial_schema.sql
+│   ├── 0002_add_events.sql
+│   ├── 0003_add_billing.sql
 │   └── index.ts
-└── config/                           # @hotel/config
-    ├── database.config.ts            # Database configuration
-    ├── auth.config.ts                # Authentication configuration
-    ├── payment.config.ts             # Payment configuration
-    └── index.ts
+├── connection.ts                     # Database connection setup
+├── migrate.ts                        # Migration runner
+└── index.ts
 ```
 
-## 3.5 Application Layer Structure
+### API Package Structure
 
-### 3.5.1 Next.js Application Structure
+```text
+packages/api/                         # @hotel/api
+├── routers/
+│   ├── reservations.router.ts        # Reservation endpoints
+│   ├── inventory.router.ts           # Room management endpoints
+│   ├── billing.router.ts             # Payment endpoints
+│   ├── guests.router.ts              # Guest endpoints
+│   ├── admin.router.ts               # Admin endpoints
+│   └── index.ts
+├── middleware/
+│   ├── auth.middleware.ts            # Authentication
+│   ├── validation.middleware.ts      # Request validation
+│   ├── error-handler.middleware.ts   # Error handling
+│   ├── rate-limit.middleware.ts      # Rate limiting
+│   └── index.ts
+├── types/
+│   ├── api-responses.ts              # Standard API responses
+│   ├── pagination.ts                # Pagination types
+│   └── index.ts
+├── root.router.ts                    # Main tRPC router
+└── index.ts
+```
+
+### Event System Package
+
+```text
+packages/events/                      # @hotel/events
+├── event-bus.ts                      # Event bus interface
+├── implementations/
+│   ├── in-memory-event-bus.ts        # MVP implementation
+│   ├── redis-event-bus.ts            # Future: Redis implementation
+│   └── index.ts
+├── integration-events/
+│   ├── reservation-events.ts         # Cross-context reservation events
+│   ├── payment-events.ts             # Cross-context payment events
+│   └── index.ts
+├── event-store/
+│   ├── event-store.service.ts        # Event persistence
+│   ├── event-projector.ts            # Event projection
+│   └── index.ts
+└── index.ts
+```
+
+## 3.4 Application Layer Implementation
+
+### Next.js Application Structure
 
 ```text
 apps/web/
@@ -519,58 +432,114 @@ apps/web/
 │   ├── app/                          # Next.js App Router
 │   │   ├── (auth)/                   # Authentication routes
 │   │   │   ├── login/
+│   │   │   │   └── page.tsx
 │   │   │   ├── register/
-│   │   │   └── layout.tsx
-│   │   ├── (dashboard)/              # Admin dashboard
-│   │   │   ├── reservations/
-│   │   │   ├── rooms/
-│   │   │   ├── guests/
+│   │   │   │   └── page.tsx
+│   │   │   ├── forgot-password/
+│   │   │   │   └── page.tsx
 │   │   │   └── layout.tsx
 │   │   ├── (booking)/                # Guest booking flow
 │   │   │   ├── search/
-│   │   │   ├── select/
+│   │   │   │   └── page.tsx          # Room search
+│   │   │   ├── rooms/
+│   │   │   │   └── page.tsx          # Room selection
 │   │   │   ├── checkout/
+│   │   │   │   └── page.tsx          # Checkout & payment
 │   │   │   ├── confirmation/
+│   │   │   │   ├── [reservationId]/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   └── layout.tsx
+│   │   ├── (dashboard)/              # Admin dashboard
+│   │   │   ├── reservations/
+│   │   │   │   ├── page.tsx          # Reservation list
+│   │   │   │   ├── [id]/
+│   │   │   │   │   ├── page.tsx      # Reservation details
+│   │   │   │   │   └── edit/
+│   │   │   │   │       └── page.tsx
+│   │   │   │   └── new/
+│   │   │   │       └── page.tsx
+│   │   │   ├── rooms/
+│   │   │   │   ├── page.tsx          # Room management
+│   │   │   │   ├── types/
+│   │   │   │   │   ├── page.tsx      # Room types
+│   │   │   │   │   └── [id]/
+│   │   │   │   │       └── page.tsx
+│   │   │   │   └── availability/
+│   │   │   │       └── page.tsx      # Availability calendar
+│   │   │   ├── guests/
+│   │   │   │   ├── page.tsx          # Guest list
+│   │   │   │   └── [id]/
+│   │   │   │       └── page.tsx
+│   │   │   ├── billing/
+│   │   │   │   ├── payments/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── invoices/
+│   │   │   │       └── page.tsx
+│   │   │   ├── reports/
+│   │   │   │   └── page.tsx
 │   │   │   └── layout.tsx
 │   │   ├── api/                      # API routes
 │   │   │   ├── trpc/
 │   │   │   │   └── [trpc]/
-│   │   │   │       └── route.ts
+│   │   │   │       └── route.ts      # tRPC handler
 │   │   │   ├── webhooks/
 │   │   │   │   ├── stripe/
+│   │   │   │   │   └── route.ts      # Stripe webhooks
+│   │   │   │   └── email/
+│   │   │   │       └── route.ts      # Email webhooks
+│   │   │   ├── auth/
+│   │   │   │   ├── login/
 │   │   │   │   │   └── route.ts
+│   │   │   │   ├── register/
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── refresh/
+│   │   │   │       └── route.ts
 │   │   │   └── health/
 │   │   │       └── route.ts
 │   │   ├── globals.css
 │   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── not-found.tsx
 │   ├── components/                   # App-specific components
 │   │   ├── booking/
 │   │   │   ├── search-form.tsx
-│   │   │   ├── room-selector.tsx
+│   │   │   ├── room-card.tsx
 │   │   │   ├── checkout-form.tsx
+│   │   │   ├── payment-form.tsx
 │   │   │   └── index.ts
 │   │   ├── dashboard/
 │   │   │   ├── reservation-table.tsx
 │   │   │   ├── room-management.tsx
+│   │   │   ├── availability-calendar.tsx
+│   │   │   ├── stats-cards.tsx
 │   │   │   └── index.ts
-│   │   └── layout/
-│   │       ├── header.tsx
-│   │       ├── sidebar.tsx
+│   │   ├── layout/
+│   │   │   ├── header.tsx
+│   │   │   ├── sidebar.tsx
+│   │   │   ├── footer.tsx
+│   │   │   └── index.ts
+│   │   └── forms/
+│   │       ├── guest-form.tsx
+│   │       ├── room-type-form.tsx
 │   │       └── index.ts
 │   ├── lib/                          # Application utilities
 │   │   ├── trpc/
 │   │   │   ├── client.ts             # tRPC client setup
 │   │   │   ├── server.ts             # tRPC server setup
+│   │   │   ├── provider.tsx          # React Query provider
 │   │   │   └── index.ts
 │   │   ├── auth/
-│   │   │   ├── config.ts             # NextAuth configuration
+│   │   │   ├── auth.service.ts       # Auth service
+│   │   │   ├── auth-provider.tsx     # Auth context
 │   │   │   └── index.ts
 │   │   ├── utils.ts                  # Utility functions
-│   │   └── constants.ts              # Application constants
+│   │   ├── constants.ts              # Application constants
+│   │   └── validations.ts            # Zod schemas
 │   ├── hooks/                        # App-specific hooks
-│   │   ├── use-booking.ts            # Booking flow state
 │   │   ├── use-auth.ts               # Authentication state
+│   │   ├── use-booking-flow.ts       # Booking flow state
+│   │   ├── use-reservation.ts        # Reservation operations
 │   │   └── index.ts
 │   ├── types/                        # App-specific types
 │   │   ├── api.types.ts              # API response types
@@ -578,159 +547,11 @@ apps/web/
 │   │   └── index.ts
 │   └── middleware.ts                 # Next.js middleware
 ├── public/                           # Static assets
+│   ├── images/
+│   ├── icons/
+│   └── favicon.ico
 ├── package.json
-└── next.config.js
+├── next.config.js
+├── tailwind.config.js
+└── tsconfig.json
 ```
-
-## 3.6 Dependency Flow & Integration Patterns
-
-### 3.6.1 Dependency Direction
-
-```mermaid
-graph TD
-    subgraph "External Layer"
-        Web[Next.js Web App]
-        DB[(Database)]
-        Stripe[Stripe API]
-        Email[Email Service]
-    end
-
-    subgraph "Infrastructure Layer"
-        WebAdapter[Web Adapters]
-        DBAdapter[DB Adapters]
-        PaymentAdapter[Payment Adapters]
-        EmailAdapter[Email Adapters]
-    end
-
-    subgraph "Application Layer"
-        Commands[Commands]
-        Queries[Queries]
-        Handlers[Handlers]
-        AppServices[App Services]
-    end
-
-    subgraph "Domain Layer (Core)"
-        Entities[Entities]
-        ValueObjects[Value Objects]
-        DomainServices[Domain Services]
-        Repositories[Repository Interfaces]
-    end
-
-    Web --> WebAdapter
-    WebAdapter --> Commands
-    WebAdapter --> Queries
-
-    Commands --> Handlers
-    Queries --> Handlers
-    Handlers --> AppServices
-    AppServices --> Entities
-    AppServices --> DomainServices
-
-    Repositories --> DBAdapter
-    DBAdapter --> DB
-
-    PaymentAdapter --> Stripe
-    EmailAdapter --> Email
-
-    classDef external fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef infrastructure fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef application fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef domain fill:#e1f5fe,stroke:#01579b,stroke-width:3px
-
-    class Web,DB,Stripe,Email external
-    class WebAdapter,DBAdapter,PaymentAdapter,EmailAdapter infrastructure
-    class Commands,Queries,Handlers,AppServices application
-    class Entities,ValueObjects,DomainServices,Repositories domain
-```
-
-### 3.6.2 Context Integration Patterns
-
-**MVP Context Relationships (Aligned with Strategic Design):**
-
-1. **Reservations & Booking ↔ Hotel & Room Management**: Customer-Supplier pattern
-   - Reservations queries room availability through port/adapter
-   - Hotel Management provides room inventory data to Reservations
-   - Hotel Management publishes availability events
-
-2. **Reservations & Booking ↔ Billing & Payments**: Customer-Supplier pattern
-   - Reservations initiates payment through payment port
-   - Billing acts as upstream supplier, providing payment processing capabilities
-   - Payments publishes payment events
-
-3. **Reservations & Booking ↔ Notification & Communication**: Open Host Service
-   - Reservations publishes booking events
-   - Notifications acts as centralized communication hub
-   - Notifications consumes events and sends emails
-
-4. **Reservations & Booking ↔ Customer Identity & Access**: Customer-Supplier pattern
-   - Customer Identity provides guest authentication and profile data
-   - Reservations depends on guest identification for bookings
-   - Shared guest identification concepts through Shared Kernel
-
-5. **Billing & Payments ↔ External Integrations**: Anti-Corruption Layer
-   - Billing context protects internal domain from Stripe's complex payment model
-   - Adapter patterns isolate external payment gateway complexity
-
-## 3.7 Implementation Roadmap
-
-### Phase 1: Core Domain (MVP)
-
-1. **Setup Infrastructure**
-   - Monorepo with Turborepo
-   - Shared packages structure
-   - Database schema and migrations
-
-2. **Implement Reservations Context**
-   - Domain entities and value objects
-   - Booking business rules
-   - Repository interfaces
-   - Command/Query handlers
-
-3. **Implement Rooms Context**
-   - Room type and availability management
-   - Integration with reservations
-
-4. **Basic Web Interface**
-   - Room search and booking flow
-   - Admin panel for room management
-
-### Phase 2: Supporting Contexts (MVP)
-
-1. **Payments Integration**
-   - Stripe adapter implementation
-   - Payment processing flow
-   - Webhook handling
-
-2. **Guest Management**
-   - Basic authentication
-   - Guest profile management
-
-3. **Notifications**
-   - Email service integration
-   - Booking confirmation emails
-
-### Phase 3: Post-MVP Enhancements
-
-1. **Revenue Management Context**
-   - Dynamic pricing algorithms
-   - Promotional campaigns
-
-2. **Analytics Context**
-   - Reporting and business intelligence
-   - Performance metrics
-
-3. **External Integrations**
-   - OTA platform connections
-   - Channel management
-
-## 3.8 Key Benefits of This Structure
-
-1. **Clear Separation of Concerns**: Each layer has a distinct responsibility
-2. **Testability**: Domain logic can be tested in isolation
-3. **Flexibility**: Easy to swap out infrastructure components
-4. **Scalability**: Contexts can be extracted to microservices
-5. **Maintainability**: Changes are localized to specific contexts
-6. **Type Safety**: End-to-end type safety with TypeScript
-7. **Developer Experience**: Clear structure and patterns for solo development
-
-This blueprint provides a solid foundation for implementing your hotel booking system with DDD and Hexagonal Architecture principles while maintaining focus on MVP delivery and future scalability.

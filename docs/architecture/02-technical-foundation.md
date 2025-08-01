@@ -2,241 +2,173 @@
 
 ## 2.1 Technology Stack Alignment with Strategic Design
 
-The technical foundation supports the strategic design decisions outlined in Section 1, particularly the modular monolith approach and MVP-focused development strategy. The technology choices prioritize solo developer productivity, type safety, and architectural flexibility.
+The technical foundation supports the strategic design decisions, particularly the modular monolith approach and MVP-focused development strategy.
 
 ### Core Technology Decisions
 
-**Modular Monolith Implementation:**
-
-- **Monorepo Structure:** Turborepo for managing bounded contexts as separate packages
-- **Module Boundaries:** Clear separation between MVP and post-MVP contexts
-- **Shared Infrastructure:** Common utilities and types across contexts
-
 **Full-Stack Type Safety:**
 
-- **Frontend:** Next.js with TypeScript for type-safe UI development
-- **API Layer:** tRPC for end-to-end type safety between client and server
-- **Database:** PostgreSQL with Drizzle ORM for type-safe database operations
+- **Frontend:** Next.js 14 with App Router and TypeScript
+- **API Layer:** tRPC for end-to-end type safety
+- **Database:** PostgreSQL with Drizzle ORM
 - **Validation:** Zod schemas shared across frontend and backend
+- **UI Framework:** shadcn/ui with Tailwind CSS
 
-**MVP-Focused Choices:**
+**Modular Monolith Implementation:**
 
-- **Payment Processing:** Stripe integration (external service, minimal internal complexity)
-- **Authentication:** better-auth library for comprehensive authentication solution
-- **Email Service:** External email provider integration
-- **UI Framework:** shadcn/ui for rapid, consistent UI development
+- **Monorepo:** Turborepo for package management and build optimization
+- **Module Boundaries:** Clear separation between bounded contexts
+- **Shared Infrastructure:** Common utilities, types, and configurations
+
+**MVP-Focused External Services:**
+
+- **Authentication:** Custom JWT implementation with refresh tokens
+- **Payment Processing:** Stripe for secure payment handling
+- **Email Service:** Resend for transactional emails
+- **File Storage:** Local storage for MVP, S3 for production
+
+**Development & Deployment:**
+
+- **Database:** PostgreSQL for ACID compliance and complex queries
+- **Deployment:** Vercel for simple deployment and scaling
+- **Monitoring:** Built-in Vercel analytics and logging
+- **Testing:** Vitest for unit tests, Playwright for E2E testing
 
 ## 2.2 Modular Monolith Architecture
-
-The monorepo structure directly supports the bounded context organization defined in the strategic design. Each bounded context becomes a separate package, enabling independent development while maintaining system cohesion.
-
-### Architectural Organization
-
-**Application Layer:**
-
-- Web application (Next.js) consuming bounded context packages
-- Admin interface for hotel management
-- API routes organized by bounded context
-
-**Domain Layer (Individual Bounded Context Packages):**
-
-**MVP Contexts (Core Domain Packages):**
-
-| Package                | Strategic Context Name       | Domain Type   |
-| ---------------------- | ---------------------------- | ------------- |
-| `@hotel/reservations`  | Reservations & Booking       | Core          |
-| `@hotel/inventory`     | Hotel & Room Management      | Supporting    |
-| `@hotel/guests`        | Customer Identity & Access   | Supporting    |
-| `@hotel/billing`       | Billing & Payments           | Supporting    |
-| `@hotel/notifications` | Notification & Communication | Supporting    |
-| `@hotel/shared`        | Shared domain utilities      | Shared Kernel |
-
-**Post-MVP Contexts (Future Domain Packages):**
-
-| Package               | Strategic Context Name     | Domain Type |
-| --------------------- | -------------------------- | ----------- |
-| `@hotel/revenue`      | Revenue Management         | Supporting  |
-| `@hotel/analytics`    | Reporting & Analytics      | Supporting  |
-| `@hotel/integrations` | External Integrations      | Supporting  |
-| `@hotel/operations`   | Maintenance & Housekeeping | Supporting  |
-
-**Infrastructure Layer:**
-
-**Shared Infrastructure Packages:**
-
-| Package           | Description                     |
-| ----------------- | ------------------------------- |
-| `@hotel/ui`       | UI component library            |
-| `@hotel/database` | Database schemas and migrations |
-| `@hotel/auth`     | Authentication utilities        |
-| `@hotel/api`      | tRPC router definitions         |
-| `@hotel/config`   | Configuration management        |
-| `@hotel/utils`    | Shared utility functions        |
-| `@hotel/types`    | Shared TypeScript definitions   |
-| `@hotel/adapters` | External service integrations   |
 
 ### Project Structure Blueprint
 
 ```text
-/
+hotel-booking-system/
 ├── apps/
 │   └── web/                          # Next.js frontend application
+│       ├── src/
+│       │   ├── app/                  # Next.js App Router
+│       │   ├── components/           # App-specific components
+│       │   ├── lib/                  # App utilities and configurations
+│       │   └── hooks/                # React hooks
+│       ├── public/                   # Static assets
+│       └── package.json
 │
-├── core/
-│   ├── reservations/                 # @hotel/reservations - MVP: Core Domain
-│   │   ├── domain/                   # Domain Layer (Inner Hexagon)
-│   │   │   ├── entities/
-│   │   │   ├── value-objects/
-│   │   │   ├── services/
-│   │   │   ├── events/
-│   │   │   ├── repositories/
+├── core/                             # Domain Contexts (Bounded Contexts)
+│   ├── reservations/                 # @hotel/reservations - Core Domain
+│   │   ├── domain/
+│   │   │   ├── aggregates/           # Aggregate roots
+│   │   │   ├── entities/             # Domain entities
+│   │   │   ├── value-objects/        # Immutable value objects
+│   │   │   ├── domain-services/      # Domain business logic
+│   │   │   ├── domain-events/        # Domain events
+│   │   │   ├── repositories/         # Repository interfaces
+│   │   │   ├── specifications/       # Business rule specifications
 │   │   │   └── index.ts
-│   │   ├── application/              # Application Layer
-│   │   │   ├── commands/
-│   │   │   ├── queries/
-│   │   │   ├── handlers/
-│   │   │   ├── services/
-│   │   │   ├── ports/
+│   │   ├── application/
+│   │   │   ├── use-cases/            # Application use cases
+│   │   │   ├── query-services/       # Read-side queries
+│   │   │   ├── ports/                # Outbound ports
+│   │   │   ├── event-handlers/       # Domain event handlers
 │   │   │   └── index.ts
-│   │   ├── infrastructure/            # Infrastructure Layer (Adapters)
-│   │   │   ├── adapters/
-│   │   │   ├── repositories/
+│   │   ├── infrastructure/
+│   │   │   ├── persistence/          # Database implementations
+│   │   │   ├── adapters/             # External service adapters
 │   │   │   └── index.ts
 │   │   └── index.ts
 │   │
-│   ├── inventory/                    # @hotel/inventory - MVP: Supporting Domain
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── index.ts
-│   │
-│   ├── guests/                       # @hotel/guests - MVP: Supporting Domain
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── index.ts
-│   │
-│   ├── billing/                      # @hotel/billing - MVP: Supporting Domain
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── index.ts
-│   │
-│   ├── notifications/                # @hotel/notifications - MVP: Supporting Domain
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── index.ts
+│   ├── inventory/                    # @hotel/inventory - Supporting Domain
+│   ├── billing/                      # @hotel/billing - Supporting Domain
+│   ├── guests/                       # @hotel/guests - Supporting Domain
+│   ├── notifications/                # @hotel/notifications - Generic Domain
 │   │
 │   ├── shared/                       # @hotel/shared - Shared Kernel
 │   │   ├── domain/
-│   │   ├── utils/
+│   │   │   ├── value-objects/        # Shared value objects
+│   │   │   ├── events/               # Base event classes
+│   │   │   ├── exceptions/           # Domain exceptions
+│   │   │   └── index.ts
 │   │   └── index.ts
 │   │
 │   # POST-MVP CONTEXTS
-│   ├── revenue/                      # @hotel/revenue - POST-MVP
-│   ├── analytics/                    # @hotel/analytics - POST-MVP
-│   ├── integrations/                 # @hotel/integrations - POST-MVP
-│   └── operations/                   # @hotel/operations - POST-MVP
+│   ├── revenue/                      # @hotel/revenue - Future
+│   ├── analytics/                    # @hotel/analytics - Future
+│   ├── integrations/                 # @hotel/integrations - Future
+│   └── operations/                   # @hotel/operations - Future
 │
-├── packages/
-│   ├── ui/                           # @hotel/ui - Shared UI components
-│   ├── database/                     # @hotel/database - Database schemas and migrations
-│   │   ├── schemas/
-│   │   ├── migrations/
-│   │   ├── connection.ts
+├── packages/                         # Infrastructure Packages
+│   ├── database/                     # @hotel/database
+│   │   ├── schemas/                  # Drizzle schemas per context
+│   │   ├── migrations/               # Database migrations
+│   │   ├── connection.ts             # Database connection setup
 │   │   └── index.ts
-│   ├── auth/                         # @hotel/auth - Authentication utilities (better-auth)
-│   │   ├── auth.config.ts            # better-auth configuration
-│   │   ├── providers/                # Authentication providers
-│   │   ├── middleware.ts             # Auth middleware
+│   │
+│   ├── api/                          # @hotel/api
+│   │   ├── routers/                  # tRPC routers per context
+│   │   ├── middleware/               # API middleware
+│   │   ├── root.router.ts            # Main tRPC router
+│   │   └── index.ts
+│   │
+│   ├── auth/                         # @hotel/auth
+│   │   ├── jwt.service.ts            # JWT token management
+│   │   ├── auth.middleware.ts        # Authentication middleware
 │   │   ├── types.ts                  # Auth types
 │   │   └── index.ts
-│   ├── api/                          # @hotel/api - tRPC router definitions
-│   │   ├── routers/
-│   │   ├── middleware/
-│   │   ├── root.router.ts
+│   │
+│   ├── events/                       # @hotel/events
+│   │   ├── event-bus.ts              # Event bus implementation
+│   │   ├── integration-events/       # Cross-context events
 │   │   └── index.ts
-│   ├── config/                       # @hotel/config - Configuration management
-│   ├── utils/                        # @hotel/utils - Shared utility functions
-│   ├── types/                        # @hotel/types - Shared TypeScript definitions
-│   └── adapters/                     # @hotel/adapters - External service adapters
-│       ├── stripe/
-│       │   ├── stripe.adapter.ts
-│       │   ├── webhook.handler.ts
-│       │   └── index.ts
-│       ├── email/
-│       │   ├── email.adapter.ts
-│       │   ├── templates/
-│       │   └── index.ts
-│       └── storage/
+│   │
+│   ├── adapters/                     # @hotel/adapters
+│   │   ├── stripe/                   # Stripe payment adapter
+│   │   ├── email/                    # Email service adapter
+│   │   └── index.ts
+│   │
+│   ├── ui/                           # @hotel/ui
+│   │   ├── components/               # Shared UI components
+│   │   ├── hooks/                    # Shared React hooks
+│   │   └── index.ts
+│   │
+│   ├── utils/                        # @hotel/utils
+│   ├── types/                        # @hotel/types
+│   └── config/                       # @hotel/config
 │
-├── tools/
+├── tools/                            # Development tools
 │   ├── eslint/                       # ESLint configurations
 │   └── typescript/                   # TypeScript configurations
 │
-├── docs/                             # Project documentation
-│   └── architecture/                 # Architecture decisions
-│
-├── package.json                      # Root package.json with workspaces
-├── turbo.json                        # Turborepo pipeline configuration
-└── README.md                         # Project documentation
+├── docs/                             # Documentation
+├── package.json                      # Root package.json
+├── turbo.json                        # Turborepo configuration
+└── README.md
 ```
 
-### MVP vs Post-MVP Package Organization
+### Package Dependencies and Boundaries
 
-**Core Domain Packages (Individual Bounded Contexts):**
+**Dependency Rules:**
 
-**Domain Packages (MVP):**
+1. **Domain Layer:** No dependencies on infrastructure or application layers
+2. **Application Layer:** Can depend on domain layer only
+3. **Infrastructure Layer:** Can depend on domain and application layers
+4. **Web App:** Can depend on all packages but should prefer application layer
+5. **Cross-Context:** Only through shared kernel or integration events
 
-- `@hotel/reservations` - Core reservation and booking domain (Reservations & Booking)
-- `@hotel/inventory` - Room and hotel inventory management (Hotel & Room Management)
-- `@hotel/guests` - Guest management and authentication (Customer Identity & Access)
-- `@hotel/billing` - Payment processing and financial transactions (Billing & Payments)
-- `@hotel/notifications` - Email notifications and messaging (Notification & Communication)
-- `@hotel/shared` - Shared domain concepts and utilities
+**Package Dependency Flow:**
 
-**Domain Packages (Post-MVP):**
+```text
+@hotel/web
+├── @hotel/api (tRPC routers)
+├── @hotel/ui (shared components)
+├── @hotel/auth (authentication)
+└── @hotel/* (domain contexts)
 
-- `@hotel/revenue` - Dynamic pricing and revenue optimization (Revenue Management)
-- `@hotel/analytics` - Business intelligence and reporting (Reporting & Analytics)
-- `@hotel/integrations` - External API integrations and channel management (External Integrations)
-- `@hotel/operations` - Housekeeping and maintenance workflows (Maintenance & Housekeeping)
+@hotel/reservations
+├── @hotel/shared (shared kernel)
+├── @hotel/database (persistence)
+├── @hotel/events (event bus)
+└── @hotel/adapters (external services)
 
-**Infrastructure Packages (MVP):**
-
-- `@hotel/ui` - Shared UI components
-- `@hotel/db` - Database schemas and migrations
-- `@hotel/auth` - Authentication utilities using better-auth library
-- `@hotel/api` - tRPC router definitions
-- `@hotel/config` - Configuration management
-- `@hotel/utils` - Shared utility functions
-- `@hotel/types` - Shared TypeScript definitions
-
-**External Adapters Package:**
-
-- `@hotel/adapters` - External service adapters
-  - Stripe integration (MVP)
-  - Email service integration (MVP)
-  - File storage integration (Post-MVP)
-
-### Domain-Driven Design Implementation
-
-Each bounded context is implemented as a separate package following DDD tactical patterns:
-
-**Domain Layer Patterns:**
-
-- **Entities and Aggregates:** Core business objects with identity and lifecycle
-- **Value Objects:** Immutable objects representing descriptive aspects
-- **Domain Services:** Business logic that doesn't naturally fit within entities
-- **Repository Interfaces:** Abstractions for data persistence
-
-**Architectural Principles:**
-
-- **Dependency Inversion:** Domain layer has no dependencies on infrastructure
-- **Clean Architecture:** Clear separation between domain, application, and infrastructure layers
-- **Bounded Context Isolation:** Each context package is independently deployable
-- **Shared Kernel:** Common domain concepts shared across contexts
+@hotel/shared
+├── @hotel/types (shared types)
+└── @hotel/utils (utility functions)
+```
 
 ## 2.3 Data Architecture and Consistency
 
@@ -244,66 +176,160 @@ Each bounded context is implemented as a separate package following DDD tactical
 
 **Schema Organization:**
 
-- **Schema-per-Context:** Logical separation of bounded contexts within PostgreSQL
-- **Shared Tables:** Common entities (e.g., audit logs) in shared schema
-- **Migration Strategy:** Context-specific migrations with dependency management
+```sql
+-- Schema per bounded context
+CREATE SCHEMA reservations;
+CREATE SCHEMA inventory;
+CREATE SCHEMA billing;
+CREATE SCHEMA guests;
+CREATE SCHEMA notifications;
+CREATE SCHEMA shared;
+
+-- Context-specific tables
+CREATE TABLE reservations.reservations (...);
+CREATE TABLE inventory.room_types (...);
+CREATE TABLE billing.payments (...);
+```
 
 **Consistency Patterns:**
 
-- **Strong Consistency:** Within bounded context boundaries using ACID transactions
-- **Eventual Consistency:** Between contexts using domain events and outbox pattern
-- **Concurrency Control:** Optimistic locking for reservation conflicts
+- **Strong Consistency:** Within aggregate boundaries using ACID transactions
+- **Eventual Consistency:** Between contexts using domain events and saga patterns
+- **Event Sourcing:** For reservation aggregate to maintain complete audit trail
 
-### Integration Patterns
+### Event Store Implementation
 
-**Internal Communication:**
+```sql
+-- Event store for aggregates
+CREATE TABLE shared.domain_events (
+    event_id UUID PRIMARY KEY,
+    aggregate_id UUID NOT NULL,
+    aggregate_type VARCHAR(100) NOT NULL,
+    event_type VARCHAR(255) NOT NULL,
+    event_data JSONB NOT NULL,
+    event_version INTEGER NOT NULL,
+    occurred_on TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(aggregate_id, event_version)
+);
 
-- **Direct Package Imports:** For MVP contexts within the monolith
-- **Event-Driven Architecture:** Domain events for loose coupling
-- **Anti-Corruption Layers:** Protecting context boundaries
+-- Integration events for cross-context communication
+CREATE TABLE shared.integration_events (
+    event_id UUID PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    event_data JSONB NOT NULL,
+    published_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    processed_at TIMESTAMP WITH TIME ZONE,
+    retry_count INTEGER DEFAULT 0
+);
+```
 
-**External Service Integration:**
+## 2.4 Authentication and Authorization Strategy
 
-- **Stripe API:** Payment processing with webhook handling
-- **Email Services:** Transactional email delivery
-- **Future Integrations:** OTA connections and third-party APIs
+### JWT-Based Authentication
 
-## 2.4 Development and Deployment Strategy
+```typescript
+// packages/auth/jwt.service.ts
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
 
-### MVP Development Approach
+export interface UserClaims {
+  userId: string;
+  email: string;
+  roles: string[];
+}
 
-**Incremental Development:**
+export class JWTService {
+  generateTokens(user: UserClaims): AuthTokens {
+    const accessToken = jwt.sign(user, process.env.JWT_SECRET!, {
+      expiresIn: '15m'
+    });
 
-- Start with core MVP contexts (Reservations, Rooms, Guests, Payments, Notifications)
-- Implement basic functionality before adding complexity
-- Use static pricing initially, defer dynamic pricing to post-MVP
-- Focus on direct bookings before external integrations
+    const refreshToken = jwt.sign(
+      { userId: user.userId },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: '7d' }
+    );
 
-**Testing Strategy:**
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60 * 1000 // 15 minutes
+    };
+  }
+}
+```
 
-- **Unit Tests:** Domain logic testing within each bounded context
-- **Integration Tests:** Context interaction and external service integration
-- **End-to-End Tests:** Critical user journeys (booking flow, payment processing)
+### Role-Based Authorization
 
-**Deployment Considerations:**
+```typescript
+// core/shared/domain/value-objects/user-identity.vo.ts
+export class UserIdentity extends ValueObject<{
+  id: string;
+  email: string;
+  roles: UserRole[];
+}> {
+  public hasRole(role: UserRole): boolean {
+    return this.props.roles.includes(role);
+  }
 
-- **Single Deployment Unit:** Monolith deployment for MVP simplicity
-- **Database Migrations:** Context-aware migration strategy
-- **Environment Management:** Development, staging, and production environments
-- **Monitoring:** Application performance and business metrics
+  public canManageReservations(): boolean {
+    return this.hasRole(UserRole.ADMIN) || this.hasRole(UserRole.STAFF);
+  }
+}
 
-### Future Scalability
+export enum UserRole {
+  GUEST = 'guest',
+  STAFF = 'staff',
+  ADMIN = 'admin'
+}
+```
 
-**Microservice Extraction Path:**
+## 2.5 External Service Integration
 
-- **Payment Context:** First candidate due to compliance and scaling needs
-- **External Integrations:** Isolation of third-party dependencies
-- **Analytics Context:** Independent scaling for reporting workloads
+### Stripe Payment Integration
 
-**Technical Evolution:**
+```typescript
+// packages/adapters/stripe/stripe.adapter.ts
+export class StripePaymentAdapter implements PaymentGatewayPort {
+  constructor(private stripe: Stripe) {}
 
-- **Event-Driven Architecture:** Transition from direct calls to event-based communication
-- **API Gateway:** Introduction for external API management
-- **Service Mesh:** Advanced networking and observability for microservices
+  async createPaymentIntent(request: CreatePaymentRequest): Promise<PaymentIntent> {
+    const stripeIntent = await this.stripe.paymentIntents.create({
+      amount: request.amount.cents,
+      currency: request.amount.currency.toLowerCase(),
+      metadata: {
+        reservationId: request.reservationId,
+        guestId: request.guestId
+      }
+    });
 
-This technical foundation provides a solid base for implementing the strategic design while maintaining flexibility for future evolution and scaling needs.
+    return PaymentIntent.fromStripeIntent(stripeIntent);
+  }
+
+  async confirmPayment(paymentIntentId: string): Promise<PaymentResult> {
+    const stripeIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    return PaymentResult.fromStripeStatus(stripeIntent.status);
+  }
+}
+```
+
+### Email Service Integration
+
+```typescript
+// packages/adapters/email/resend.adapter.ts
+export class ResendEmailAdapter implements EmailServicePort {
+  constructor(private resend: Resend) {}
+
+  async sendEmail(request: SendEmailRequest): Promise<void> {
+    await this.resend.emails.send({
+      from: 'noreply@yourhotel.com',
+      to: request.recipient.email,
+      subject: request.subject,
+      html: request.htmlContent
+    });
+  }
+}
+```
