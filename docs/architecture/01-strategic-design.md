@@ -1,268 +1,253 @@
-# Section 1: Strategic Design—Modeling the Hotel Booking Domain
+# 1. Strategic Design - Domain-Driven Design Foundation
 
 ## 1.1 The Imperative of Domain-Driven Design for Complex Systems
 
-The development of a hotel booking system presents complex business challenges that extend far beyond simple data storage and retrieval. The business logic encompasses intricate pricing models, dynamic room availability, multifaceted reservation policies, and interactions with numerous external systems. A traditional monolithic layered architecture, which organizes code by technical function, often proves inadequate for such complexity, leading to systems that are challenging to maintain and evolve.
+Developing a hotel booking system in Go presents complex challenges extending beyond simple data storage and retrieval. The business logic encompasses intricate pricing models, dynamic room availability, multifaceted reservation policies, and interactions with many external systems. Traditional Go applications organized by technical layers (handlers, services, repositories) often prove inadequate for such complexity.
 
-Domain-Driven Design (DDD) offers a more robust paradigm by placing the business domain at the center of the software development process. This approach is most beneficial when implementing systems with significant and complex business rules, as is the case with a hotel booking platform. The primary goal of DDD is to create a rich, expressive software model that accurately reflects the business's processes and terminology through three core principles:
+Domain-Driven Design (DDD) offers a robust paradigm by placing the business domain at the center of the software development process. This approach leverages Go's strength in building maintainable, concurrent systems while ensuring the architecture reflects business processes and terminology through three core principles:
 
 1. **Steadfast focus on the core domain and its logic**
 2. **Basing software design on a model of that domain**
-3. **Fostering deep collaboration between technical and domain experts through Ubiquitous Language**
+3. **Fostering collaboration between technical and domain experts through Ubiquitous Language**
 
-By adopting DDD, we ensure the resulting architecture is not only technically sound but also intrinsically aligned with the business it serves, creating a foundation for a scalable, resilient, and maintainable application.
+Go's explicit error handling, strong typing, and composition over inheritance make it an excellent choice for DDD implementation, creating a foundation for scalable, resilient, and maintainable applications.
 
 ## 1.2 Identifying the Bounded Contexts
 
-The initial step in DDD's strategic design is to decompose the overarching domain into smaller, more manageable subdomains, each encapsulated within a Bounded Context. A Bounded Context is a well-defined boundary within which a specific domain model is consistent and valid.
-
-For our hotel booking system, analyzing the business domain reveals several distinct areas of responsibility, organized by MVP priority:
+The initial step in DDD's strategic design is decomposing the overarching domain into smaller, manageable subdomains, each encapsulated within a Bounded Context. For a comprehensive hotel booking system, analyzing the business domain reveals several distinct areas of responsibility, organized by MVP priority:
 
 ### Core Domain (MVP Essential)
 
-**Reservations & Booking (Core Domain) - MVP REQUIRED**
-This is the heart of the application, representing the primary business value. This context manages the entire lifecycle of a customer's booking journey, from initial reservation creation through confirmation, modifications, and cancellations. It encapsulates complex business rules around booking policies, rate calculations, and reservation status management.
+**Reservations & Booking (Core Domain) - MVP REQUIRED:**
+This represents the primary business value and the heart of the application. It manages the entire lifecycle of a customer's booking journey, including creation of temporary bookings, confirmation of reservations, modifications, cancellations, and application of various booking policies.
 
-_Key Entities:_ `ReservationAggregate`, `RoomBooking`, `BookingPolicy`
-_Key Value Objects:_ `DateRange`, `ConfirmationNumber`, `ReservationStatus`
-_Key Services:_ `BookingPolicyService`, `RateCalculatorService`
+Key Go packages:
 
-### Supporting Subdomains (MVP Required)
+- `internal/reservation/domain` - Core business entities
+- `internal/reservation/service` - Business logic orchestration
+- `internal/reservation/repository` - Data persistence abstractions
 
-**Hotel & Room Management (Supporting Subdomain) - MVP REQUIRED**
-This context acts as the inventory management system for the hotel. It manages room types, individual room details, amenities, and most critically, real-time room availability. It provides the foundational data upon which the Reservations context operates.
+### Supporting Subdomains
 
-_Key Entities:_ `RoomType`, `Room`, `AvailabilityCalendar`
-_Key Value Objects:_ `RoomNumber`, `OccupancyStatus`, `RoomFeatures`
-_Key Services:_ `AvailabilityCalculatorService`, `RoomAssignmentService`
+**Hotel & Room Management (Supporting Subdomain) - MVP REQUIRED:**
+Acts as the inventory management system for the hotel, managing room types, individual room details, amenities, and real-time room availability.
 
-**Billing & Payments (Supporting Subdomain) - MVP REQUIRED**
-This context handles payment processing with hotel-specific business rules including deposit policies, refund calculations, and tax handling. It integrates with external payment gateways while maintaining domain-specific payment logic.
+Key Go packages:
 
-_Key Entities:_ `PaymentAggregate`, `Invoice`, `RefundRequest`
-_Key Value Objects:_ `PaymentMethod`, `PaymentStatus`, `Money`
-_Key Services:_ `PaymentPolicyService`, `RefundCalculatorService`
+- `internal/inventory/domain` - Room and availability entities
+- `internal/inventory/service` - Inventory management logic
+- `internal/inventory/repository` - Inventory data persistence
 
-**Customer Identity & Access (Supporting Subdomain) - MVP SIMPLIFIED**
-This context handles basic guest registration and authentication for MVP. Advanced CRM features are deferred post-MVP.
+**Customer Identity & Access (Supporting Subdomain) - MVP SIMPLIFIED:**
+Handles basic guest registration and authentication for MVP. Advanced CRM features can be deferred post-MVP.
 
-_MVP Entities:_ `Guest`, `GuestProfile`
-_Post-MVP Additions:_ `LoyaltyAccount`, `Preferences`, `CommunicationSettings`
+Key Go packages:
 
-### Generic Subdomains
+- `internal/guest/domain` - Guest entities and authentication
+- `internal/guest/service` - Guest management logic
+- `internal/guest/auth` - Authentication and authorization
 
-**Notification & Communication (Generic Subdomain) - MVP SIMPLIFIED**
-Basic email confirmations for reservations are MVP essential. Advanced communication features are deferred.
+**Billing & Payments (Generic Subdomain) - MVP REQUIRED:**
+Thin adapter layer over third-party payment platforms (Stripe), handling payment processing, webhook events, and refund requests.
 
-_MVP Entities:_ `NotificationTemplate`, `EmailService`
-_Post-MVP:_ `CommunicationChannel`, `MessageQueue`, `DeliveryStatus`
+Key Go packages:
+
+- `internal/billing/domain` - Payment entities and business rules
+- `internal/billing/service` - Payment orchestration
+- `internal/billing/adapter` - External payment gateway integration
+
+**Notification & Communication (Generic Subdomain) - MVP SIMPLIFIED:**
+Basic email confirmations for reservations. Advanced features (SMS, push notifications) deferred post-MVP.
+
+Key Go packages:
+
+- `internal/notification/domain` - Notification entities
+- `internal/notification/service` - Communication orchestration
+- `internal/notification/adapter` - Email service integration
 
 ### Post-MVP Contexts (Deferred)
 
-**Revenue Management (Supporting Subdomain) - POST-MVP**
-Dynamic pricing strategies, demand forecasting, and promotional campaigns.
-
-**Reporting & Analytics (Generic Subdomain) - POST-MVP**
-Business intelligence and performance analytics.
-
-**External Integrations (Generic Subdomain) - POST-MVP**
-OTA connections and third-party API integrations.
-
-**Maintenance & Housekeeping (Generic Subdomain) - POST-MVP**
-Operational management and room status tracking.
+- **Revenue Management** - Dynamic pricing and promotional campaigns
+- **Reporting & Analytics** - Business intelligence capabilities
+- **External Integrations** - OTA connections and third-party APIs
+- **Maintenance & Housekeeping** - Operational management features
 
 ## 1.3 Defining the Ubiquitous Language
 
-The Ubiquitous Language is a shared vocabulary between domain experts and developers, reflected in code, documentation, and conversations.
+The Ubiquitous Language ensures shared vocabulary between domain experts and developers, reflected in Go code, documentation, and conversations:
 
 ### Reservations & Booking Context
 
-- **Guest:** A person who makes a reservation or stays at the hotel
-- **Reservation:** A confirmed booking for specific room(s), dates, and guest(s)
-- **Booking Policy:** Rules governing reservations (cancellation, modification, no-show)
-- **Rate Calculation:** Process of determining total cost including taxes and fees
-- **Confirmation Number:** Unique identifier for a completed reservation
-- **Hold Period:** Time limit for completing payment on a provisional booking
+- **Guest** - Person making a reservation or staying at the hotel
+- **Reservation** - Confirmed booking for specific room, dates, and guest
+- **BookingPolicy** - Rules governing reservations (cancellation, modification, no-show)
+- **RateCalculation** - Process determining total cost including taxes and fees
+- **BookingStatus** - Current reservation state (Pending, Confirmed, Cancelled, Completed)
+- **HoldPeriod** - Time limit for completing payment on provisional booking
 
 ### Hotel & Room Management Context
 
-- **Room Type:** Category of rooms with similar features (e.g., 'Deluxe King')
-- **Room:** Specific physical accommodation unit with unique identifier
-- **Availability Calendar:** Real-time inventory showing bookable rooms by date
-- **Occupancy Status:** Current state of a room (Vacant Clean, Occupied, Out of Order)
-- **Room Block:** Group of rooms reserved for events or group bookings
+- **RoomType** - Category of rooms with similar features (e.g., 'Deluxe King')
+- **Room** - Specific physical accommodation unit with unique identifier
+- **AvailabilityCalendar** - Real-time inventory showing bookable rooms by date
+- **Amenity** - Features or services associated with rooms or hotel
+- **OccupancyStatus** - Current room state (Vacant Clean, Occupied, Out of Order)
 
 ### Billing & Payments Context
 
-- **Payment Intent:** Representation of a payment attempt with specific amount
-- **Payment Record:** Internal record linking external payment data to reservations
-- **Refund Policy:** Business rules governing refund eligibility and amounts
-- **Deposit Requirement:** Advance payment rules based on booking characteristics
-- **Tax Calculation:** Location and service-specific tax computation
+- **PaymentIntent** - Stripe's representation of payment attempt
+- **PaymentRecord** - Internal record linking Stripe payment data to reservations
+- **WebhookEvent** - Stripe's notification of payment status changes
+- **RefundRequest** - Internal request to process refunds through Stripe's API
+- **Invoice** - Customer-facing document summarizing charges and payment status
 
-## 1.4 Context Map
+## 1.4 Context Map and Integration Patterns
 
-The Context Map visualizes relationships and integration patterns between bounded contexts using established DDD patterns.
+The Context Map visualizes relationships and integration patterns between Bounded Contexts:
 
 ```mermaid
 graph TB
-    %% Core Domain
-    subgraph "🎯 Core Domain (MVP)"
-        RES["📋 Reservations & Booking<br/>(Core Domain)"]
-    end
-
-    %% Supporting Domains
-    subgraph "🔧 Supporting Domains (MVP)"
-        INV["🏨 Hotel & Room Management<br/>(Supporting)"]
-        BILL["💳 Billing & Payments<br/>(Supporting)"]
-        GUEST["👤 Customer Identity<br/>(Supporting)"]
-    end
-
-    %% Generic Domains
-    subgraph "⚙️ Generic Domains (MVP)"
-        NOTIF["📧 Notifications<br/>(Generic)"]
-    end
-
-    %% Shared Kernel
-    subgraph "🔗 Shared Kernel"
-        SHARED["Shared Domain Concepts<br/>(Guest ID, Money, DateRange, Room Type ID)"]
+    %% MVP Required Contexts
+    subgraph MVP["🚀 MVP Required Contexts"]
+        RB["📋 Reservations & Booking<br/>(Core Domain)"]
+        HRM["🏨 Hotel & Room Management<br/>(Supporting)"]
+        CIA["👤 Customer Identity & Access<br/>(Supporting - Simplified)"]
+        BP["💳 Billing & Payments<br/>(Generic - Stripe)"]
+        NC["📧 Notification & Communication<br/>(Generic - Email Only)"]
     end
 
     %% Post-MVP Contexts
-    subgraph "🔮 Post-MVP Contexts"
-        REV["💰 Revenue Management"]
-        ANALYTICS["📊 Analytics & Reporting"]
-        INTEGRATIONS["🔗 External Integrations"]
-        OPS["🧹 Operations & Housekeeping"]
+    subgraph PostMVP["🔮 Post-MVP Contexts"]
+        RM["💰 Revenue Management<br/>(Supporting)"]
+        RA["📊 Reporting & Analytics<br/>(Generic)"]
+        EI["🔗 External Integrations<br/>(Generic)"]
+        MH["🧹 Maintenance & Housekeeping<br/>(Generic)"]
     end
 
     %% External Services
-    subgraph "🌐 External Services"
-        STRIPE["💳 Stripe API"]
-        EMAIL["📧 Email Service"]
-        OTA["🏢 OTA Platforms"]
+    subgraph External["🌐 External Services"]
+        Stripe["💳 Stripe API"]
+        Email["📧 Email Service"]
+        OTA["🏢 Online Travel Agencies"]
     end
 
-    %% MVP Relationships (Solid lines)
-    RES ---|"Customer-Supplier<br/>(Room Availability)"| INV
-    RES ---|"Customer-Supplier<br/>(Payment Processing)"| BILL
-    RES ---|"Shared Kernel<br/>(Guest Identity)"| GUEST
-    RES ---|"Publisher-Subscriber<br/>(Integration Events)"| NOTIF
-
-    %% Shared Kernel relationships
-    RES -.- SHARED
-    INV -.- SHARED
-    BILL -.- SHARED
-    GUEST -.- SHARED
-
-    %% External integrations (MVP)
-    BILL ---|"Anti-Corruption Layer"| STRIPE
-    NOTIF ---|"Adapter Pattern"| EMAIL
+    %% MVP Relationships
+    RB ---|"Customer-Supplier"| HRM
+    RB ---|"Anti-Corruption Layer"| CIA
+    RB ---|"Customer-Supplier"| BP
+    RB ---|"Open Host Service"| NC
+    BP ---|"Anti-Corruption Layer"| Stripe
+    NC ---|"Integration"| Email
 
     %% Post-MVP Relationships (Dashed lines)
-    RES -.-|"Future: Customer-Supplier"| REV
-    ANALYTICS -.-|"Future: Conformist"| RES
-    ANALYTICS -.-|"Future: Conformist"| BILL
-    INTEGRATIONS -.-|"Future: Anti-Corruption"| OTA
-    OPS -.-|"Future: Customer-Supplier"| INV
+    RB -.-|"Future: Customer-Supplier"| RM
+    RA -.-|"Future: Conformist"| RB
+    EI -.-|"Future: Integration"| OTA
 
-    %% Styling
-    classDef core fill:#e1f5fe,stroke:#01579b,stroke-width:4px
-    classDef supporting fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
-    classDef generic fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef shared fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef postMvp fill:#fce4ec,stroke:#880e4f,stroke-width:2px,stroke-dasharray: 5 5
-    classDef external fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    classDef mvpStyle fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef postMvpStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px,stroke-dasharray: 5 5
+    classDef externalStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
 
-    class RES core
-    class INV,BILL,GUEST supporting
-    class NOTIF generic
-    class SHARED shared
-    class REV,ANALYTICS,INTEGRATIONS,OPS postMvp
-    class STRIPE,EMAIL,OTA external
+    class RB,HRM,CIA,BP,NC mvpStyle
+    class RM,RA,EI,MH postMvpStyle
+    class Stripe,Email,OTA externalStyle
 ```
 
-### Integration Pattern Descriptions
+### Domain Events Strategy
 
-**Customer-Supplier Pattern:**
+Domain events serve as the primary integration mechanism between bounded contexts, enabling loose coupling while maintaining business consistency across the system.
 
-- **Reservations ↔ Hotel Management:** Reservations (customer) depends on room availability data from Hotel Management (supplier)
-- **Reservations ↔ Billing:** Reservations (customer) initiates payment requests to Billing (supplier)
+**Event Types by Context:**
 
-**Shared Kernel Pattern:**
+- **Reservations**: ReservationCreated, ReservationConfirmed, ReservationCancelled, ReservationModified, GuestInfoUpdated
+- **Inventory**: RoomAvailabilityChanged, RoomTypeUpdated, RoomStatusChanged, MaintenanceScheduled
+- **Billing**: PaymentProcessed, PaymentFailed, RefundIssued, InvoiceGenerated
+- **Guest**: GuestRegistered, GuestProfileUpdated, GuestPreferencesChanged
+- **Notification**: EmailSent, SMSDelivered, NotificationFailed
 
-- **Core Value Objects:** `GuestId`, `Money`, `DateRange`, `RoomTypeId` shared across contexts
-- **Common Events:** `DomainEvent` base classes and integration event contracts
+**Event Flow Patterns:**
 
-**Publisher-Subscriber Pattern:**
+- **Reservation → Billing**: Trigger payment processing when reservation is confirmed
+- **Reservation → Notification**: Send confirmation emails and booking updates
+- **Reservation → Inventory**: Update room availability and occupancy status
+- **Billing → Notification**: Send payment confirmations and receipts
+- **Guest → Reservation**: Update existing reservations when guest profile changes
+- **Inventory → Reservation**: Notify about room changes affecting existing bookings
 
-- **Event-Driven Communication:** Contexts publish integration events for loose coupling
-- **Asynchronous Processing:** Non-blocking communication between contexts
+**Event Processing Guarantees:**
 
-**Anti-Corruption Layer Pattern:**
+- **At-least-once delivery**: Using outbox pattern with retry mechanisms
+- **Idempotent handlers**: All event handlers designed to handle duplicate events safely
+- **Eventual consistency**: Cross-context data synchronization within acceptable time windows
+- **Event ordering**: Critical events processed in sequence using event versioning
 
-- **External Service Integration:** Protecting domain from external API complexities
-- **Translation Layer:** Converting between domain models and external formats
+**Event Schema Evolution:**
 
-## 1.5 Architectural Approach: The Scalable Modular Monolith
+- **Backward compatibility**: New event versions maintain compatibility with existing handlers
+- **Graceful degradation**: Unknown event fields ignored by older handlers
+- **Version migration**: Automatic event transformation between schema versions
 
-A pivotal architectural decision is choosing between monolithic or microservice architecture. While microservices offer scalability and team autonomy, they introduce significant operational complexity that can impede initial development velocity. A traditional monolith risks becoming a "Big Ball of Mud" where logical boundaries erode over time.
+### Key Integration Patterns
 
-For this project, a **Modular Monolith** architecture provides the optimal balance. This approach organizes the system into well-defined, independent modules (our Bounded Contexts) within a single codebase and deployment unit, delivering the development simplicity of a monolith while enforcing strong logical boundaries prescribed by DDD.
+**Customer-Supplier Relationships:**
 
-### Key Benefits
+- Reservations & Booking ↔ Hotel & Room Management
+- Reservations & Booking ↔ Billing & Payments
+- Reservations & Booking ↔ Customer Identity & Access
 
-1. **Development Simplicity:** Single codebase, unified build process, simplified debugging
-2. **Operational Simplicity:** Single deployment unit, unified monitoring, simpler infrastructure
-3. **Strong Boundaries:** Clear module separation prevents architectural erosion
-4. **Future Flexibility:** Clean extraction path to microservices when needed
-5. **Solo Developer Friendly:** Reduced complexity for initial development and deployment
+**Anti-Corruption Layers:**
 
-### Monorepo Structure with Turborepo
+- Billing & Payments ↔ Stripe API (protecting internal domain from external complexity)
+- Customer Identity ↔ Reservations (simplified guest representation)
 
-Using Turborepo for monorepo management provides:
+**Open Host Service:**
 
-- **Fast Builds:** Intelligent caching and parallel execution
-- **Clear Dependencies:** Explicit package dependencies
-- **Independent Development:** Contexts developed as separate packages
-- **Scalable Architecture:** Foundation for future microservice extraction
+- Notification & Communication ↔ All Contexts (centralized communication hub)
 
-## 1.6 MVP Development Strategy
+## 1.5 Architectural Approach: The Go Modular Monolith
 
-### MVP Scope Definition
+For this project, a **Modular Monolith** architecture provides optimal balance, organizing the system into well-defined, independent modules (Bounded Contexts) within a single Go binary. This approach delivers development and operational simplicity while enforcing strong logical boundaries prescribed by DDD.
 
-#### Phase 1: Core Booking Flow (Weeks 1-3)
+**Go Module Structure Benefits:**
 
-- Basic room search and availability checking
-- Simple reservation creation and confirmation
-- Fixed pricing (no dynamic rates)
-- Direct bookings only (no external channels)
+- Single `go.mod` file for dependency management
+- Clear package boundaries enforcing context isolation
+- Efficient compilation and deployment as single binary
+- Easy extraction to microservices when needed
+- Excellent performance through Go's runtime efficiency
 
-#### Phase 2: Payment & Guest Management (Weeks 4-5)
+**Concurrency and Race Condition Handling:**
 
-- Stripe payment integration
-- Basic guest registration and authentication
-- Email confirmation notifications
-- Simple cancellation handling
+- Optimistic locking for reservation conflicts
+- Event sourcing for audit trails
+- Circuit breaker patterns for external services
+- Distributed locking for inventory management
 
-#### Phase 3: Admin Interface (Week 6)
+The structure follows Go's standard project layout with DDD principles:
 
-- Room and room type management
-- Reservation management dashboard
-- Basic reporting (reservation list, occupancy)
+```text
+hotel-booking-system/
+├── cmd/                      # Application entry points
+├── internal/                 # Private application code
+│   ├── reservation/          # Reservations & Booking context
+│   ├── inventory/            # Hotel & Room Management context
+│   ├── guest/                # Customer Identity & Access context
+│   ├── billing/              # Billing & Payments context
+│   ├── notification/         # Notification & Communication context
+│   └── shared/               # Shared domain concepts
+├── pkg/                      # Public library code
+├── api/                      # API definitions (OpenAPI, gRPC)
+├── web/                      # Web application files
+├── configs/                  # Configuration files
+├── scripts/                  # Build and deployment scripts
+├── docs/                     # Documentation
+└── go.mod                    # Go module definition
+```
 
-### Deferred to Post-MVP
+This strategy is particularly powerful because:
 
-- Dynamic pricing and revenue management
-- Advanced guest preferences and loyalty programs
-- OTA integrations and channel management
-- Housekeeping and operational workflows
-- Advanced analytics and business intelligence
-- Marketing campaigns and promotional pricing
-
-### Development Priorities
-
-1. **Core Domain First:** Focus on Reservations & Booking context
-2. **Essential Integrations:** Room availability and payment processing
-3. **Minimum Viable Features:** Basic functionality over advanced features
-4. **Technical Debt Management:** Build for current needs, design for future evolution
+1. **Development Simplicity**: Single codebase and deployment unit
+2. **Strong Boundaries**: Go packages enforce context isolation
+3. **Performance**: Single binary with efficient Go runtime
+4. **Future-Proof**: Clear path to microservices extraction
+5. **Team Efficiency**: Ideal for solo developer or small team
